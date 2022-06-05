@@ -2,7 +2,6 @@ import { NextFunction, Request, Response, Router } from "express";
 import { BaseController } from "./basecontroller";
 import { BasicResponse } from "../dto/output/basicresponse";
 import { ChannelService } from "../services/channelservice";
-import { ChannelLinkService } from "../services/channellinkservice";
 
 export class ChannelController extends BaseController {
     public loadRoutes(prefix: String, router: Router) {
