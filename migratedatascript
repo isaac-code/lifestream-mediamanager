@@ -1,0 +1,164 @@
+
+
+    async migrateData(req, res, next) {
+        let dropBoxImageBasseUrl = "https://dl.dropboxusercontent.com/s";
+
+
+        let mediaEndpoint = "https://mediamanager.dotefy.com/v1/media/data?channel=revivalmedium&limit=200&isActive=true";
+        let oldMedia = await this.pullData(res, {}, mediaEndpoint);
+
+        let mediaTagEndpoint = "https://mediamanager.dotefy.com/v1/media/tag?channel=revivalmedium&limit=200&isActive=true";
+        let oldMediaTag = await this.pullData(res, {}, mediaTagEndpoint);
+
+        let mediaMinisterEndpoint = "https://mediamanager.dotefy.com/v1/minister?channel=revivalmedium&limit=200&isActive=true";
+        let oldMediaMinister = await this.pullData(res, {}, mediaMinisterEndpoint);
+
+
+        let dataSet = new Map();
+
+        console.log(`Total count of dataset ${oldMediaTag.length + oldMediaMinister.length}`);
+
+
+        //Migrate Media Tags
+
+        for (let i = 0; i < oldMediaTag.length; i++) {
+            let tag = oldMediaTag[i];
+            let tagDTO: any = {
+                name: tag.secret.name,
+                image: `${dropBoxImageBasseUrl}/${tag?.secret?.image?.[0]?.secret?.dropboxSharedLink}`,
+                coreType: tag.coreType,
+                isActive: true
+            }
+
+            const secret = { name: tagDTO.name, image: tagDTO.image };
+
+            let mediatag = await req.app.locals.mediatag({
+                secret,
+                userId: "system",
+                tenantId: "system",
+                nameHash: this.sha256(tagDTO.name),
+                coreType: tagDTO.coreType,
+                isActive: true
+            });
+
+            await mediatag.save();
+
+
+            console.log(tag._id);
+            console.log(mediatag._id);
+
+
+            dataSet.set(tag._id, mediatag._id);
+            console.log(dataSet.size);
+        }
+
+
+        //Migrate Media Ministers
+        for (let j = 0; j < oldMediaMinister.length; j++) {
+
+            let mediaMinister = oldMediaMinister[j];
+            let ministerDTO: any = {
+                name: mediaMinister.secret.name,
+                image: mediaMinister?.secret?.image?.[0]?.secret?.dropboxSharedLink ? `${dropBoxImageBasseUrl}/${mediaMinister?.secret?.image?.[0]?.secret?.dropboxSharedLink}` : "",
+                coreType: mediaMinister.coreType,
+                office: mediaMinister.office,
+                isActive: true
+            }
+
+            const secret = { name: ministerDTO.name, image: ministerDTO.image };
+
+            let minister = req.app.locals.minister({
+                secret,
+                userId: "system",
+                tenantId: "system",
+                nameHash: this.sha256(ministerDTO.name),
+                coreType: ministerDTO.coreType,
+                office: ministerDTO.office,
+                isActive: true
+            });
+
+            await minister.save();
+
+
+            console.log(mediaMinister._id);
+            console.log(minister._id);
+
+
+            dataSet.set(mediaMinister._id, minister._id);
+            console.log(dataSet.size);
+        };
+
+        //Migrate Media
+
+        if (dataSet.size == (oldMediaTag.length + oldMediaMinister.length)) {
+            console.log(`------Total oldMedia ---------${oldMedia.length}`);
+            console.log(`------Data Set ---------${JSON.stringify(dataSet)}`);
+
+            let that = this;
+            let theUnSaved = [];
+            await oldMedia.forEach(async (media, i) => {
+                //if (media?.secret?.mediaFile?.[0]?.secret?.dropboxSharedLink) {
+                let newMinister = dataSet.get(media?.minister?.[0]._id);
+                let newTag = await that.getNewTagId(media.tag, dataSet);
+                let mediaDTO: any = {
+                    name: media.secret.name,
+                    sourceLink: `${dropBoxImageBasseUrl}/${media?.secret?.mediaFile?.[0]?.secret?.dropboxSharedLink}`,
+                    minister: media?.minister?.[0]?._id ? newMinister : null,
+                    mediaTag: newTag,
+                    mediaType: media.mediaType,
+                    isActive: true,
+                }
+
+                const secret = { sourceLink: mediaDTO.sourceLink };
+
+                let mediaData = await req.app.locals.media({
+                    secret,
+                    userId: "system",
+                    tenantId: "system",
+                    name: mediaDTO.name,
+                    minister: mediaDTO.minister,
+                    mediaTag: mediaDTO.mediaTag,
+                    mediaType: mediaDTO.mediaType,
+                    isActive: true,
+                });
+
+                if (!mediaData.save()) {
+                    theUnSaved.push(mediaData);
+                }
+
+                if (i == oldMedia.length - 1) {
+                    res.send({ message: "We are done", data: theUnSaved });
+                }
+            });
+        }
+
+
+
+    }
+
+
+    async getNewTagId(oldTags, dataSet) {
+        let newTags = [];
+        await oldTags.forEach(async tag => {
+            await newTags.push(dataSet.get(tag._id))
+        });
+        return newTags;
+    }
+
+    async pullData(res, params, endpoint) {
+        console.log(endpoint);
+        let responseData;
+
+        await axios({
+            method: 'get',
+            url: endpoint,
+        }).then(async function (response) {
+            responseData = await response.data.data;
+        }).catch(function (error) {
+            responseData = error;
+        }).then(function () {
+            console.log(`Tried to make the call`);
+        });
+
+        return responseData;
+    }
