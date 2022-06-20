@@ -27,7 +27,6 @@ import { IMinisterModel } from "./models/minister";
 import { ChannelController } from "./controllers/channelcontroller";
 import { MediaController } from "./controllers/mediacontroller";
 import { MinisterController } from "./controllers/ministercontroller";
-import { StreamController } from "./controllers/streamcontroller";
 
 
 //schemas
@@ -159,9 +158,6 @@ export class Server {
 
         console.log(`Loading minister controller routes`);
         new MinisterController().loadRoutes("/minister", router);
-
-        console.log(`Loading stream controller routes`);
-        new StreamController().loadRoutes("/stream", router);
 
         this.app.use(router);
     }

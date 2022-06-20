@@ -166,7 +166,7 @@ export class BaseService {
     protected async updateEntitiesWithItsPrettyName(req) {
         console.log("....update entities with their pretty name");
 
-        ["media", "minister", "mediatag", "mediacollection"].forEach(async section => {
+        ["media", "minister", "mediatag"].forEach(async section => {
             let existingEntityWithEmptyPrettyName = [];
             await req.app.locals[section]
                 .find({ prettyName: { $in: [null, false, "-"] } })

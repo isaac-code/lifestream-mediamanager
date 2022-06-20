@@ -2,8 +2,8 @@
 sequenceDiagram
     participant AD as Admin
     participant NA as Node App
-    participant FS as File Server App
     participant MG as MongoDB
+    participant FS as File Server App
     participant FH as File Host <br> (DropBox, AWS, GCP)
 
     AD ->> +NA: Request: Create Channel
